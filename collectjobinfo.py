@@ -58,7 +58,7 @@ class JobInfoHTMLParser(HTMLParser):
             if 'industry' in d:
                 self.jobdata['industry'] = d['industry'].replace('\n', ' ')
             if 'employmentType' in d:
-                self.jobdata['employmentType'] = d['employmentType'].replace('\n', ' ')
+                self.jobdata['employmentType'] = [emp.replace('\n', ' ') for emp in  d['employmentType']]
             if 'occupationalCategory' in d:
                 self.jobdata['category'] = d['occupationalCategory'].replace('\n', ' ')
 
