@@ -6,9 +6,7 @@ import urllib
 import json
 from html.parser import HTMLParser
 
-datadir = '/home/ubuntu/'
-
-df_raw = pd.read_csv(f'{datadir}/jobcloud_interview_challenge.csv')
+datadir = '/home/ignacio/myprojects/jcloud/'
 
 # Collect additional data for jobId from url
 
@@ -47,24 +45,22 @@ class JobInfoHTMLParser(HTMLParser):
                              'employmentType' : np.nan, 'category' : np.nan}
             d = json.loads(data)
             if 'title' in d:
-                self.jobdata['title'] = d['title']
+                self.jobdata['title'] = d['title'].replace('\n', ' ')
             # Some records have no company name
             if 'hiringOrganization' in d:
                 if not isinstance(d['hiringOrganization'], str):
-                    self.jobdata['company'] = d['hiringOrganization']['name']
+                    self.jobdata['company'] = d['hiringOrganization']['name'].replace('\n', ' ')
             if 'joblocation' in d:
                 try:
-                    self.jobdata['joblocation'] = d['jobLocation']['address']['addressLocality']
+                    self.jobdata['joblocation'] = d['jobLocation']['address']['addressLocality'].replace('\n', ' ')
                 except KeyError as e:
                     pass
             if 'industry' in d:
-                self.jobdata['industry'] = d['industry']
+                self.jobdata['industry'] = d['industry'].replace('\n', ' ')
             if 'employmentType' in d:
-                self.jobdata['employmentType'] = d['employmentType']
+                self.jobdata['employmentType'] = [emp.replace('\n', ' ') for emp in  d['employmentType']]
             if 'occupationalCategory' in d:
-                self.jobdata['category'] = d['occupationalCategory']
-            else:
-                self.jobdata['category'] = np.nan
+                self.jobdata['category'] = d['occupationalCategory'].replace('\n', ' ')
 
     def reset(self):
         HTMLParser.reset(self)
@@ -99,6 +95,7 @@ def collectjobinfo(jobid, parser):
 if __name__ == '__main__':
     # Create a new dataframe with job infos
     parser = JobInfoHTMLParser()
+    df_raw = pd.read_csv(f'{datadir}/jobcloud_interview_challenge.csv')
     njobs = df_raw.job_id.unique().shape[0]
     jobinfo_dict = {col: np.ndarray((njobs,), dtype='O') for col in ['jobid', 'title', 'company', 'joblocation', 'industry', 'employmentType', 'category']}
     jobids = sorted(df_raw.job_id.unique())
