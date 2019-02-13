@@ -2,9 +2,7 @@ import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import urllib
-import json
-from html.parser import HTMLParser
+import matplotlib.ticker as ticker
 
 datadir = '/home/ignacio/myprojects/jcloud/'
 
@@ -30,10 +28,26 @@ print('Updated memory usage:')
 print(df_raw.memory_usage())
 
 # Some basic plots
-fig, axs = plt.subplots(1,2)
+fig, axs = plt.subplots(1,2, figsize=(15, 10))
 df_raw['language'].value_counts().plot.bar(subplots=True, ax=axs[0])
 df_raw['source'].value_counts().plot.bar(subplots=True, ax=axs[1])
 #for ticks in axs[1].get_xticklabels():
 #    ticks.set_rotation(45)
-#plt.show()
+fig.savefig('lang_source_bars.png')
+plt.close()
 
+fig, axs = plt.subplots(1,3, figsize=(20,10))
+dates = sorted(df_raw.cal_dt_int32.unique())
+#df_raw.groupby(['cal_dt'])['user_id'].value_counts().unstack().mean(1).plot(ax=axs)
+df_raw.loc[df_raw.language=='de'].groupby(['cal_dt'])['user_id'].value_counts().unstack().mean(1).plot(ax=axs[0], label='DE')
+df_raw.loc[df_raw.language=='fr'].groupby(['cal_dt'])['user_id'].value_counts().unstack().mean(1).plot(ax=axs[1], label='FR', x_compat=True)
+df_raw.loc[df_raw.language=='en'].groupby(['cal_dt'])['user_id'].value_counts().unstack().mean(1).plot(ax=axs[2], label='EN')
+axs[0].legend()
+axs[1].set_xticks(range(len(dates)))
+axs[1].set_xticklabels(dates[::19])
+axs[1].xaxis.set_major_locator(ticker.MultipleLocator(20))
+axs[1].xaxis.set_minor_locator(ticker.MultipleLocator(1))
+axs[1].legend()
+axs[2].legend()
+axs[0].set
+plt.show()
