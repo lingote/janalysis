@@ -3,7 +3,6 @@ import operator
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 
 datadir = 'data'
 
@@ -48,6 +47,17 @@ fig.savefig('source_pie.png')
 #    ticks.set_rotation(45)
 fig.savefig('lang_source_bars.png')
 plt.close()
+
+# Create coarser source categories
+source_dict = {j: 'job_alert' for j in df_raw.source.unique() if 'alert' in j}
+source_dict.update({j: 'vacancy' for j in df_raw.source.unique() if 'vacancy' in j})
+source_dict.update({j: j for j in df_raw.source.unique() if 'vacancy' not in j and 'alert' not in j})
+df_raw['source_coarse'] = df_raw.source.map(source_dict)
+fig, axs = plt.subplots(1,1)
+axs.pie(df_raw.source_coarse.value_counts(normalize=True), labels=np.unique(list(source_dict.values())), autopct='%.2f')
+axs.axis('equal')
+fig.savefig('source_coarse_pie.png')
+
 
 dates = sorted(df_raw.cal_dt_int32.unique())
 #df_raw.groupby(['cal_dt'])['user_id'].value_counts().unstack().mean(1).plot(ax=axs)
@@ -117,3 +127,24 @@ fig1, axs1 = do_ts_plots([clicks_de, clicks_fr, clicks_en], 'mean(1)', ylabel='<
 fig1.suptitle("Daily average no. clicks per user")
 fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
 fig1.savefig('ts_avgclicks.png')
+
+# Relative change
+rel_de = (clicks_de.sum(1).diff(1)/clicks_de.sum(1).shift(1))
+rel_fr = (clicks_fr.sum(1).diff(1)/clicks_fr.sum(1).shift(1))
+rel_en = (clicks_en.sum(1).diff(1)/clicks_en.sum(1).shift(1))
+
+fig, axs = plt.subplots(1,3, figsize=(15,10))
+for idx, reldata in enumerate([rel_de, rel_en, rel_fr]):
+    axs[idx].plot(reldata)
+    axs[idx].set_xticks(range(5,90,10))
+    axs[idx].set_xticklabels(operator.itemgetter(*range(5,90,10))(dates))
+    axs[idx].set_ylabel('daily %change tot. clicks')
+    for ticks in axs[idx].get_xticklabels():
+        ticks.set_rotation(90)
+fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+fig.suptitle('Daily pct. change clicks')
+
+fig.savefig('rel_totalclicks.png')
+
+
+df_user_vs_frac = df_raw.groupby('user_id')['source_coarse'].value_counts(normalize=True).unstack().fillna(0.)
