@@ -27,6 +27,9 @@ df_raw['cal_dt_int32'] = df_raw['cal_dt'].apply(lambda x: x.replace('-','')).ast
 print('Updated memory usage:')
 print(df_raw.memory_usage())
 
+# Add new column with day of week
+df_raw['dayofweek'] = df_raw.cal_dt.astype('datetime64[D]').apply(lambda x: x.isoweekday())
+
 # Some basic plots
 fig, axs = plt.subplots(1,2, figsize=(15, 10))
 df_raw['language'].value_counts().plot.bar(subplots=True, ax=axs[0])
@@ -43,8 +46,6 @@ axs.pie(df_raw.source.value_counts(normalize=True), labels=df_raw.source.unique(
 axs.axis('equal')
 fig.suptitle('Source Distribution')
 fig.savefig('source_pie.png')
-#for ticks in axs[1].get_xticklabels():
-#    ticks.set_rotation(45)
 fig.savefig('lang_source_bars.png')
 plt.close()
 
@@ -58,14 +59,19 @@ axs.pie(df_raw.source_coarse.value_counts(normalize=True), labels=np.unique(list
 axs.axis('equal')
 fig.savefig('source_coarse_pie.png')
 
+# Do users stick to the same source category?
+df_raw.groupby('user_id')['source_coarse'].value_counts(normalize=True).unstack().plot.box()
+
+# Do users stick to the same language?
+df_raw.groupby('user_id')['source_coarse'].value_counts(normalize=True).unstack().plot.box()
 
 dates = sorted(df_raw.cal_dt_int32.unique())
 #df_raw.groupby(['cal_dt'])['user_id'].value_counts().unstack().mean(1).plot(ax=axs)
-clicks_de = df_raw.loc[df_raw.language=='de'].groupby(['cal_dt'])['user_id'].value_counts().unstack()
+clicks_de = df_raw.loc[df_raw.language=='de'].groupby(['cal_dt', 'dayofweek'])['user_id'].value_counts().unstack()
 clicks_de.lang = 'DE'
-clicks_fr = df_raw.loc[df_raw.language=='fr'].groupby(['cal_dt'])['user_id'].value_counts().unstack()
+clicks_fr = df_raw.loc[df_raw.language=='fr'].groupby(['cal_dt', 'dayofweek'])['user_id'].value_counts().unstack()
 clicks_fr.lang = 'FR'
-clicks_en = df_raw.loc[df_raw.language=='en'].groupby(['cal_dt'])['user_id'].value_counts().unstack()
+clicks_en = df_raw.loc[df_raw.language=='en'].groupby(['cal_dt', 'dayofweek'])['user_id'].value_counts().unstack()
 clicks_en.lang = 'EN'
 
 fig, axs = plt.subplots(1,3, figsize=(15,10))
@@ -74,13 +80,7 @@ for idx, clicks in enumerate([clicks_de, clicks_en, clicks_fr]):
     axs[idx].text(2, 5.4, 'mean {0:.3f}'.format(clicks.mean(1).mean()))
     axs[idx].text(2, 5.32, 'std {0:.3f}'.format(clicks.mean(1).std()))
     axs[idx].text(2, 5.24, 'max {0:.3f} @ {1}'.format(clicks.mean(1).max(), clicks.mean(1).idxmax()))
-    #axs[idx].set_ylim(1.6, 5.5)
-    #axs[idx].set_ylabel('Avg. clicks')
-    #axs[idx].set_xticks(range(5,90,10))
-    #axs[idx].set_xticklabels(operator.itemgetter(*range(5,90,10))(dates))
     axs[idx].legend()
-    #for ticks in axs[idx].get_xticklabels():
-    #    ticks.set_rotation(90)
 fig.suptitle("Avg. no. of clicks per user per day")
 fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 fig.savefig('hist_avgclicks.png')
@@ -128,6 +128,11 @@ fig1.suptitle("Daily average no. clicks per user")
 fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
 fig1.savefig('ts_avgclicks.png')
 
+# Boxplot of clicks per day of week
+clicks_de.sum(1).unstack().plot.box()
+clicks_fr.sum(1).unstack().plot.box()
+clicks_en.sum(1).unstack().plot.box()
+
 # Relative change
 rel_de = (clicks_de.sum(1).diff(1)/clicks_de.sum(1).shift(1))
 rel_fr = (clicks_fr.sum(1).diff(1)/clicks_fr.sum(1).shift(1))
@@ -146,5 +151,18 @@ fig.suptitle('Daily pct. change clicks')
 
 fig.savefig('rel_totalclicks.png')
 
+# Add info from scraped data
+jobinfo = pd.read_csv('jobinfo2.csv', encoding='utf-8', lineterminator='\n')
+# Transform employment type, keep only first entry for simplicity
+jobinfo['employmentType'] = jobinfo.employmentType.fillna('NA').apply(lambda x: x[1:-1].split(',')[0])
+df_merged = df_raw.merge(jobinfo[['job_id', 'industry', 'employmentType']], left_on='job_id', right_on='jobid')
 
-df_user_vs_frac = df_raw.groupby('user_id')['source_coarse'].value_counts(normalize=True).unstack().fillna(0.)
+# Job type pie chart
+fig, axs = plt.subplots(1,1)
+axs.pie(df_merged.employmentType.value_counts(normalize=True), labels=df_merged.employmentType.unique(), autopct='%1.1f%%')
+axs.axis('equal')
+fig.suptitle('Employment type distribution')
+fig.savefig('employment_type.png')
+
+fig, axs = plt.subplots(1,1)
+axs.bar(df_merged.industry)
